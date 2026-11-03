@@ -4,7 +4,7 @@ DIRECTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right by 1 ti
 
 def in_plane(tile, size):
     """
-    in_plane basically returns True if both the row and column numbers are between 0 and the board's size limit.
+    in_plane essentially returns True if both the row and column numbers are between 0 and the board's size limit.
     It will prevent my bfs from looking for paths outside the edges of the grid.
     """
     row, col = tile
