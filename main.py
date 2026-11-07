@@ -1,51 +1,111 @@
 import sys
 import time
-# Import your teammates' files (Make sure the function names match what they actually named them!)
+import os
+
 import grid
 import levels
 import player
-import pc_logic
 import display
+import pc_logic
+
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 def main():
-    # 1. Initialize the game state
-    # (e.g., load level 1 from levels.py, set up the grid)
-    current_level = levels.get_level(1) 
-    game_state = grid.Grid(current_level)
+    # 1. Load all levels using levels.py
+    all_boards = levels.build_all()
     
-    # 2. Set up the players
-    human_player = player.Player(start_pos=(0,0))
-    pc_opponent = pc_logic.PCOpponent(start_pos=(5,5))
+    # 2. Initialize the player
+    human = player.new_player()
+    
+    # Start at Level 0 (Tutorial)
+    current_level_index = 0
+    board_obj = all_boards[current_level_index]
+    
+    # Reset player for the current level
+    start_pos = board_obj.actors.get("player", (4, 7))
+    player.reset_for_level(human, current_level_index, start_pos)
+    
+    # The pc_logic.py and player.py are slightly disconnected. 
+    # We set up a basic PC position (usually the goal area)
+    pc_start = board_obj.meta.get("pc_start", (0, 0))
+    board_obj.actors["pc"] = pc_start
 
     # 3. The Main Game Loop
     while True:
-        # A. Render the screen
-        display.render(game_state, human_player, pc_opponent)
+        clear_screen()
+        display.draw_key()
         
-        # B. Check for Game Over / Win conditions
-        if game_state.is_game_over() or human_player.has_won():
-            print("Game Over!")
-            break
-            
-        # C. Get Human Input (Handling their abilities and wall placement)
-        user_input = input("Enter move (WASD) or ability (1/2): ").strip().upper()
+        # Convert the Board class into the Dictionary format that player.py expects
+        board_dict = {
+            "size": board_obj.width,
+            "player_walls": {k: v for k, v in board_obj.walls.items() if v == "player"},
+            "pc_walls": {k: v for k, v in board_obj.walls.items() if v == "pc"},
+            "neutral_walls": set(),
+            "collapsed": board_obj.collapsed,
+            "door_tiles": board_obj.exits if board_obj.sealed else set(),
+            "pickups": board_obj.pickups,
+            "prism": None,
+            "shard": None,
+            "keystone": None,
+            "glyphs": [],
+            "player_goal": board_obj.exits,
+            "pc_goal": set(), # Add PC goal logic later if needed
+            "pc_pos": board_obj.actors.get("pc", (0,0)),
+            "round": 1,
+            "pc_walls_left": 5,
+            "protected": set(),
+            "anchored": set(),
+            "pc_jammed": False
+        }
+
+        # Display the board using display.py
+        display.draw_board(human, board_dict)
+        display.draw_controls(human)
         
-        if user_input == 'Q':
+        # Get user input
+        user_input = input("\nEnter command (or 'q' to quit): ").strip().lower()
+        
+        if user_input == 'q':
             print("Quitting...")
             sys.exit()
-            
-        # Apply human move/ability
-        human_player.handle_input(user_input, game_state)
+
+        # Handle the player's move using player.py
+        player.begin_turn(human)
+        success, message, events = player.handle_command(human, board_dict, user_input)
         
-        # D. PC Opponent Turn
-        # (This calls the BFS pathfinding your teammate wrote)
-        pc_opponent.take_turn(game_state)
+        # Update the original board object with any changes made
+        board_obj.walls.update({k: "player" for k in board_dict["player_walls"]})
+        board_obj.pickups = board_dict["pickups"]
         
-        # E. Update Environment (e.g., collapsing walls/decaying)
-        game_state.update_hazards()
+        print("\n" + message)
         
-        # F. Small delay so the game isn't unplayably fast (optional)
-        time.sleep(0.1)
+        # Check win condition
+        if ("won",) in events:
+            print("You won the level!")
+            current_level_index += 1
+            if current_level_index >= len(all_boards):
+                print("Congratulations, you beat the game!")
+                break
+            else:
+                board_obj = all_boards[current_level_index]
+                start_pos = board_obj.actors.get("player", (4, 7))
+                player.reset_for_level(human, current_level_index, start_pos)
+            input("Press Enter to continue...")
+            continue
+
+        player.end_turn(human)
+        
+        # PC Turn (Basic implementation)
+        # Note: Your pc_logic.py functions are written for a different board format, 
+        # so for now, we simulate a simple move so the game doesn't crash.
+        if success:
+            # Simulate PC moving randomly for now
+            pc_pos = board_obj.actors.get("pc", (0,0))
+            if pc_pos[0] < board_obj.height - 1:
+                board_obj.actors["pc"] = (pc_pos[0] + 1, pc_pos[1])
+        
+        time.sleep(0.5)
 
 if __name__ == "__main__":
     main()
