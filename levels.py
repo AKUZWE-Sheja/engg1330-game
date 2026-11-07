@@ -6,7 +6,7 @@ def build_level_0():
     board.actors["player"] = (4, 7)
 
     for x in range(1, 8):
-        board.exists.add((x, 1))
+        board.exits.add((x, 1))
     board.sealed = True
 
     for cell in [(4, 6), (4, 5), (4, 4)]:
@@ -24,7 +24,7 @@ def build_level_1():
     board.actors["player"] = (4, 7)
 
     for x in range(1, 8):
-        board.exists.add((x, 1))
+        board.exits.add((x, 1))
 
     for cell in [(2, 3), (6, 3), (2, 5), (6, 5)]:
         board.walls[cell] = "fixed"
@@ -42,7 +42,7 @@ def build_level_2():
     board.actors["player"] = (5, 9)
 
     for x in range(1, 10):
-        board.exists.add((x, 1))
+        board.exits.add((x, 1))
     board.sealed = True
 
     glyphs = [(2, 8), (9, 7), (3, 2)]

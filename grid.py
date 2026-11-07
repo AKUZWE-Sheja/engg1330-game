@@ -61,7 +61,7 @@ class Board:
         self.collapsed = set()
         self.pickups = {}
         self.hidden = {}
-        self.exists = set()
+        self.exits = set()
         self.sealed = False
         self.actors = {}
         self.patrols = []
@@ -104,7 +104,7 @@ class Board:
         if not self.in_bounds(x, y):
             return False
         cell = (x, y)
-        if cell in self.wall_cells() or cell in self.exists or cell in self.pickups:
+        if cell in self.wall_cells() or cell in self.exits or cell in self.pickups:
             return False
         for pos in self.actors.values():
             if pos == cell:
