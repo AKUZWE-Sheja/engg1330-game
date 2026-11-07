@@ -1,111 +1,166 @@
-import sys
-import time
-import os
+"""Barricade: Echoes - main game loop.
 
-import grid
-import levels
-import player
+Run:   python main.py
+Extra: python main.py --plain       (letters instead of emoji)
+       python main.py --level 2     (start at level 2, for testing)
+       python main.py --no-clear    (do not clear the screen)
+"""
+import os
+import sys
+
 import display
-import pc_logic
+import level_setup
+import player
+import turns
+import view
+
+LAST_LEVEL = 3
+CLEAR = True
+
 
 def clear_screen():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    if CLEAR:
+        os.system("cls" if os.name == "nt" else "clear")
+
+
+def ask(prompt):
+    try:
+        return input(prompt)
+    except EOFError:
+        return "q"
+
+
+def start_level(human, index):
+    board = level_setup.build_level(index)
+    player.reset_for_level(human, index, board["player_start"])
+    human["pos"] = board["player_start"]
+    turns.update_goals(board)
+    return board
+
+
+def show(human, board, log):
+    clear_screen()
+    view.draw_key()
+    view.draw_board(human, board)
+    display.draw_controls(human)
+    print()
+    for line in log[-6:]:
+        print(line)
+
+
+def handle_events(human, board, events, log):
+    """Turn player.py events into messages. Returns True if the level was won."""
+    won = False
+    for event in events:
+        kind = event[0]
+        if kind == "won":
+            won = True
+        elif kind == "picked":
+            log.append("Picked up " + event[1] + ".")
+        elif kind == "hands_full":
+            log.append("Your hands are full: can't pick up " + event[1] + ".")
+        elif kind == "echo":
+            log.append("*** You earned the Echo of " + event[1].capitalize() + "! ***")
+        elif kind == "glyph":
+            log.append("Glyph " + str(event[1]) + " lit.")
+        elif kind == "glyph_reset":
+            log.append("Wrong glyph! The sequence resets.")
+        elif kind == "door_open":
+            log.append("The Glyph Door opens!")
+        elif kind == "anchored":
+            log.append("Tile " + str(event[1]) + " is pinned and won't collapse.")
+        elif kind == "used" and board["level"] == 1:
+            board["respawn"].append((board["round"] + 4, event[2], event[1]))
+    return won
+
+
+def check_coins(human, board, log):
+    pos = human["pos"]
+    if pos in board["coins"]:
+        board["coins"].discard(pos)
+        board["coins_got"] += 1
+        log.append("Coin! ({0}/{1})".format(board["coins_got"], board["coins_needed"]))
+        if board["coins_got"] >= board["coins_needed"]:
+            board["door_tiles"] = set()
+            log.append("The top row is unlocked!")
+    elif pos == board["hint_coin"]:
+        board["hint_coin"] = None
+        log.append("Some rewards matter later.")
+
+
+def player_turn(human, board, log):
+    """Returns 'won', 'quit' or None (turn finished)."""
+    player.begin_turn(human)
+    while True:
+        show(human, board, log)
+        raw = ask("\n> ").strip().lower()
+        if raw in ("q", "quit") and human["aim"] is None:
+            return "quit"
+        ok, message, events = player.handle_command(human, board, raw)
+        if message:
+            log.append(message)
+        if handle_events(human, board, events, log):
+            return "won"
+        if board["level"] == 0:
+            check_coins(human, board, log)
+        if human["actions_left"] <= 0 and human["aim"] is None:
+            return None
+
+
+def restart_level(human, board, log, reason):
+    log.append(reason)
+    log.append("The level restarts. (Your move budget is NOT refunded.)")
+    return start_level(human, board["level"])
+
 
 def main():
-    # 1. Load all levels using levels.py
-    all_boards = levels.build_all()
-    
-    # 2. Initialize the player
+    global CLEAR
+    args = sys.argv[1:]
+    if "--plain" in args:
+        view.use_plain()
+    if "--no-clear" in args:
+        CLEAR = False
+    level = 0
+    if "--level" in args:
+        level = int(args[args.index("--level") + 1])
+
     human = player.new_player()
-    
-    # Start at Level 0 (Tutorial)
-    current_level_index = 0
-    board_obj = all_boards[current_level_index]
-    
-    # Reset player for the current level
-    start_pos = board_obj.actors.get("player", (4, 7))
-    player.reset_for_level(human, current_level_index, start_pos)
-    
-    # The pc_logic.py and player.py are slightly disconnected. 
-    # We set up a basic PC position (usually the goal area)
-    pc_start = board_obj.meta.get("pc_start", (0, 0))
-    board_obj.actors["pc"] = pc_start
+    board = start_level(human, level)
+    log = ["Level {0}: {1}".format(board["level"], board["name"]), board["intro"]]
 
-    # 3. The Main Game Loop
     while True:
-        clear_screen()
-        display.draw_key()
-        
-        # Convert the Board class into the Dictionary format that player.py expects
-        board_dict = {
-            "size": board_obj.width,
-            "player_walls": {k: v for k, v in board_obj.walls.items() if v == "player"},
-            "pc_walls": {k: v for k, v in board_obj.walls.items() if v == "pc"},
-            "neutral_walls": set(),
-            "collapsed": board_obj.collapsed,
-            "door_tiles": board_obj.exits if board_obj.sealed else set(),
-            "pickups": board_obj.pickups,
-            "prism": None,
-            "shard": None,
-            "keystone": None,
-            "glyphs": [],
-            "player_goal": board_obj.exits,
-            "pc_goal": set(), # Add PC goal logic later if needed
-            "pc_pos": board_obj.actors.get("pc", (0,0)),
-            "round": 1,
-            "pc_walls_left": 5,
-            "protected": set(),
-            "anchored": set(),
-            "pc_jammed": False
-        }
+        result = player_turn(human, board, log)
 
-        # Display the board using display.py
-        display.draw_board(human, board_dict)
-        display.draw_controls(human)
-        
-        # Get user input
-        user_input = input("\nEnter command (or 'q' to quit): ").strip().lower()
-        
-        if user_input == 'q':
+        if result == "quit":
             print("Quitting...")
-            sys.exit()
-
-        # Handle the player's move using player.py
-        player.begin_turn(human)
-        success, message, events = player.handle_command(human, board_dict, user_input)
-        
-        # Update the original board object with any changes made
-        board_obj.walls.update({k: "player" for k in board_dict["player_walls"]})
-        board_obj.pickups = board_dict["pickups"]
-        
-        print("\n" + message)
-        
-        # Check win condition
-        if ("won",) in events:
-            print("You won the level!")
-            current_level_index += 1
-            if current_level_index >= len(all_boards):
-                print("Congratulations, you beat the game!")
-                break
-            else:
-                board_obj = all_boards[current_level_index]
-                start_pos = board_obj.actors.get("player", (4, 7))
-                player.reset_for_level(human, current_level_index, start_pos)
-            input("Press Enter to continue...")
+            return
+        if result == "won":
+            log.append("*** You cleared level {0}! ***".format(board["level"]))
+            if board["level"] >= LAST_LEVEL:
+                show(human, board, log)
+                print("\nCongratulations, you beat the game!")
+                return
+            board = start_level(human, board["level"] + 1)
+            log.extend(["", "Level {0}: {1}".format(board["level"], board["name"]),
+                        board["intro"]])
             continue
 
-        player.end_turn(human)
-        
-        # PC Turn (Basic implementation)
-        # Note: Your pc_logic.py functions are written for a different board format, 
-        # so for now, we simulate a simple move so the game doesn't crash.
-        if success:
-            # Simulate PC moving randomly for now
-            pc_pos = board_obj.actors.get("pc", (0,0))
-            if pc_pos[0] < board_obj.height - 1:
-                board_obj.actors["pc"] = (pc_pos[0] + 1, pc_pos[1])
-        
-        time.sleep(0.5)
+        if player.end_turn(human):
+            show(human, board, log)
+            print("\nYou ran out of moves. Game over.")
+            return
+
+        messages, opponent_won = turns.pc_turn(board, human)
+        log.extend(messages)
+        if opponent_won:
+            board = restart_level(human, board, log, "The opponent got there first!")
+            continue
+
+        messages, failed = turns.end_round(board, human)
+        log.extend(messages)
+        if failed:
+            board = restart_level(human, board, log, "You can no longer win this level.")
+
 
 if __name__ == "__main__":
     main()

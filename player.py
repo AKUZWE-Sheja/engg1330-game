@@ -3,11 +3,11 @@ from pc_logic import get_shortest_path, in_plane
 KEYS = {"w": (-1, 0), "s": (1, 0), "a": (0, -1), "d": (0, 1)}
 WALL_DIRS = {"h": (0, 1), "v": (1, 0)}     
 
-LEVEL_WALLS = {0: 0, 1: 5, 2: 6, 3: 7}     
+LEVEL_WALLS = {0: 0, 1: 8, 2: 10, 3: 12}
 LEVEL_HOLD = {0: 1, 1: 1, 2: 1, 3: 2}
 
 START_BUDGET = 150
-ANCHOR_RANGE = 3
+ANCHOR_RANGE = 99
 DISMANTLE_RANGE = 2
 BOMB_RANGE = 3
 SUDDEN_DEATH_ROUND = 20
