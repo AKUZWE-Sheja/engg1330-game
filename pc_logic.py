@@ -11,7 +11,6 @@ def in_plane(tile, size):
     return 0 <= row < size and 0 <= col < size
 
 
-
 def rebuild_path(came_from, end):
     """
     Rebuild the path from the start to the end using the came_from dictionary.
@@ -26,7 +25,6 @@ def rebuild_path(came_from, end):
         tile = came_from[tile]
     path.reverse()
     return path
-
 
 
 def get_shortest_path(start, target, walls, size=9, has_phase_step=False, door_tiles=None, avoid_tiles=None):
@@ -206,19 +204,6 @@ def get_ring_tiles(size, rings):
             # formula = min(top, left, bottom, right) < rings
 
 
-def get_collapsed_tiles(size, turn_counter, collapse_every=5, max_collapses=3):
-    """
-    To get collapsed tiles + the ring that will collapse next (rounds ending in 4 / 9 / 14).
-    """
-    rings = min(turn_counter // collapse_every, max_collapses)   # how many so far? capped at 3
-    about_to_collapse = (turn_counter % collapse_every == collapse_every - 1)
-    
-    if about_to_collapse and rings < max_collapses:
-        rings += 1
-    
-    return get_ring_tiles(size, rings)
-
-
 def get_winning_goal(level, size, turn_counter, lockdown_node=None, goal_row=None):
     """
     Level 1-2: the final row. 
@@ -241,29 +226,6 @@ def get_active_walls(wall_ages, turn_counter, lifetime=8):
     """
     return {tile for tile, placed in wall_ages.items()
             if turn_counter - placed < lifetime}
-
-
-def get_overclock_moves(current, target, walls, size=13, **options):
-    """
-    Overclock = two enemy steps in one turn.
-    """
-    moves = []
-    for _ in range(2):
-        nxt = get_next_pc_move(current, target, walls, size, **options)
-        if nxt is None or nxt == current:
-            break
-            # if boxed in or won, stop.
-        moves.append(nxt)
-        current = nxt
-
-    return moves
-
-
-def should_use_overclock(pc_path, opponent_path):
-    """
-    Only use it when the falling behind.
-    """
-    return path_length(pc_path) > path_length(opponent_path)
 
 
 def can_place_wall(turn_counter, sudden_death_round=20):

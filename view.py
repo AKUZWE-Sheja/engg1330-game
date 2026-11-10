@@ -130,12 +130,10 @@ def draw_key():
 
 
 def draw_extra_controls(human, board):
-    """Commands added by main.py (shown when not aiming)."""
+    """Commands handled by main.py (hidden while aiming)."""
     if human["aim"] is not None:
         return
-    if board["level"] == 3 and human["anchor"] and not human["anchor_used"]:
-        print("  anchor key  pin the Keystone so it never collapses")
-    print("  restart     restart this level (moves are not refunded)")
+    display.control("restart", "restart this level (moves are not refunded)")
     if board["level"] > 0:
-        print("  replay N    go back to level N to find a missed Echo")
-    print("  q           quit")
+        display.control("replay N", "go back to level N to find a missed Echo")
+    display.control("q", "quit")

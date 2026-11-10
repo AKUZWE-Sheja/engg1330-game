@@ -41,10 +41,6 @@ def all_walls(board):
     return walls
 
 
-def can_see_glyphs(player):
-    return player["sight"] or player["level"] == 0
-
-
 def secret_tiles(board):
     tiles = set(board["glyphs"])
     if board["prism"] is not None:
@@ -131,7 +127,7 @@ def step_on(player, board, tile):
         board["shard"] = None
         events.append(("echo", "anchor"))
     glyphs = board["glyphs"]
-    if can_see_glyphs(player) and len(board["door_tiles"]) > 0 and tile in glyphs:
+    if player["sight"] and len(board["door_tiles"]) > 0 and tile in glyphs:
         if tile == glyphs[player["glyph_progress"]]:
             player["glyph_progress"] += 1
             events.append(("glyph", player["glyph_progress"]))
@@ -413,7 +409,7 @@ def visible_secrets(player, board):
         seen[board["prism"]] = "prism"
     if board["shard"] is not None:
         seen[board["shard"]] = "shard"
-    if can_see_glyphs(player):
+    if player["sight"]:
         for i in range(len(board["glyphs"])):
             seen[board["glyphs"][i]] = "glyph" + str(i + 1)
     if player["sight"] and board["keystone"] is not None:

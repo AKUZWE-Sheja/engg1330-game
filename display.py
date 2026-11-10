@@ -1,5 +1,3 @@
-from player import visible_secrets, aim_tiles, survey_view
-
 ICONS = {
     "player": " 🔴 ",
     "pc": " 🔵 ",
@@ -39,30 +37,6 @@ def cell(player, board, tile, secrets, aim):
     if tile in board["pickups"]:
         return ICONS["pickup"]
     return ICONS["empty"]
-
-
-def draw_board(player, board):
-    secrets = visible_secrets(player, board)
-    aim = aim_tiles(player)
-
-    for row in range(board["size"]):
-        line = ""
-        for col in range(board["size"]):
-            line = line + cell(player, board, (row, col), secrets, aim)
-        print(line)
-
-    print()
-    print("Level", player["level"], "| Round", board["round"], "| Moves", player["moves_left"], "| Walls", player["walls_left"])
-    print("Sight:", player["sight"], "| Anchor:", player["anchor"])
-    view = survey_view(player, board)
-    if view is not None and view["pc_path"] is not None:
-        steps = len(view["pc_path"]) - 1
-        print("Opponent:", steps, "steps from goal,", view["pc_walls_left"], "walls left")
-
-
-def draw_key():
-    print("🔴 you  🔵 opponent  🟥 your wall  🟦 enemy wall  🚧 patrol  🎁 power-up  🟫 aiming  1️⃣2️⃣3️⃣ glyphs")
-    print("💎 prism  🔷 shard  🔑 keystone")
 
 
 POWERUP_HELP = {

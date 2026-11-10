@@ -33,7 +33,6 @@ def ask(prompt):
 def start_level(human, index):
     board = level_setup.build_level(index)
     player.reset_for_level(human, index, board["player_start"])
-    human["pos"] = board["player_start"]
     turns.update_goals(board)
     return board
 
@@ -43,6 +42,7 @@ def show(human, board, log):
     view.draw_key()
     view.draw_board(human, board)
     display.draw_controls(human)
+    view.draw_extra_controls(human, board)
     print()
     for line in log[-6:]:
         print(line)
@@ -89,13 +89,20 @@ def check_coins(human, board, log):
 
 
 def player_turn(human, board, log):
-    """Returns 'won', 'quit' or None (turn finished)."""
+    """Returns 'won', 'quit', 'restart', 'replay N' or None (turn finished)."""
     player.begin_turn(human)
     while True:
         show(human, board, log)
         raw = ask("\n> ").strip().lower()
-        if raw in ("q", "quit") and human["aim"] is None:
-            return "quit"
+        if human["aim"] is None:
+            if raw in ("q", "quit", "restart"):
+                return raw
+            if raw.startswith("replay"):
+                parts = raw.split()
+                if len(parts) == 2 and parts[1].isdigit() and int(parts[1]) < board["level"]:
+                    return raw
+                log.append("Type replay and an earlier level, e.g. replay 1.")
+                continue
         ok, message, events = player.handle_command(human, board, raw)
         if message:
             log.append(message)
@@ -131,9 +138,17 @@ def main():
     while True:
         result = player_turn(human, board, log)
 
-        if result == "quit":
+        if result in ("q", "quit"):
             print("Quitting...")
             return
+        if result == "restart":
+            board = restart_level(human, board, log, "Restarting the level.")
+            continue
+        if result is not None and result.startswith("replay"):
+            board = start_level(human, int(result.split()[1]))
+            log.extend(["", "Replaying level {0}: {1}".format(board["level"], board["name"]),
+                        board["intro"]])
+            continue
         if result == "won":
             log.append("*** You cleared level {0}! ***".format(board["level"]))
             if board["level"] >= LAST_LEVEL:
